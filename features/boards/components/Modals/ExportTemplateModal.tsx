@@ -25,13 +25,18 @@ function downloadJson(filename: string, data: unknown) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener';
   a.style.display = 'none';
   document.body.appendChild(a);
 
   // Note: some browsers (notably Safari) may cancel the download if the object URL
   // is revoked immediately after click. Keep it alive briefly.
   try {
-    a.click();
+    // Ensure the node is in the DOM before triggering the click (some browsers are picky).
+    requestAnimationFrame(() => {
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    });
   } catch {
     // Fallback: open the blob URL (user can save manually).
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -150,6 +155,8 @@ export function ExportTemplateModal(props: {
     });
   }, [mode, schemaVersion, slugPrefix, activeBoard, journeyName, selectedBoards]);
 
+  const journeyJsonText = useMemo(() => JSON.stringify(journeyJson, null, 2), [journeyJson]);
+
   const canExportJourney = mode === 'journey' ? selectedBoards.length > 0 : true;
 
   const toggleBoard = (boardId: string) => {
@@ -194,11 +201,28 @@ export function ExportTemplateModal(props: {
       }
       const base = slugify(mode === 'board' ? activeBoard.name : (journeyName || 'journey'));
       const filename = `${base || 'journey'}.journey.json`;
+      // Debug trace: helps diagnose user reports like "click does nothing".
+      console.info('[ExportTemplateModal] download click', {
+        mode,
+        filename,
+        schemaVersion,
+        selectedBoards: selectedBoards.map(b => ({ id: b.id, name: b.name, stages: b.stages.length })),
+      });
       downloadJson(filename, journeyJson);
       addToast('Download iniciado.', 'success');
     } catch (err) {
       console.error('[ExportTemplateModal] download failed:', err);
       addToast('Falha ao iniciar download. Veja o console para detalhes.', 'error');
+    }
+  };
+
+  const handleCopyJourneyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(journeyJsonText);
+      addToast('journey.json copiado!', 'success');
+    } catch (err) {
+      console.error('[ExportTemplateModal] copy failed:', err);
+      addToast('Não consegui copiar (permissão do navegador).', 'error');
     }
   };
 
@@ -324,6 +348,20 @@ export function ExportTemplateModal(props: {
               >
                 <Download size={16} /> Baixar journey.json
               </button>
+              <button
+                type="button"
+                onClick={handleCopyJourneyJson}
+                className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-semibold flex items-center gap-2"
+              >
+                <Copy size={16} /> Copiar journey.json
+              </button>
+            </div>
+
+            <div className="mt-3">
+              <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Preview (`journey.json`)</div>
+              <pre className="text-xs whitespace-pre-wrap rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/30 p-3 max-h-56 overflow-auto">
+                {journeyJsonText}
+              </pre>
             </div>
           </div>
         </div>

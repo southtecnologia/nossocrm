@@ -16,6 +16,7 @@
   - Kanban templates: adicionado **export de Board/Jornada** (gera `journey.json` compatível com a aba Community) + snippet pronto para colar no `registry.json` do repositório de templates.
     - Correção: download via Blob URL agora é compatível com Safari (não revoga o URL imediatamente; fallback para abrir em nova aba).
     - Correção: `slugify()` do export agora evita regex avançada (unicode property escapes) para não quebrar em alguns browsers; o click de download passou a ter try/catch + toast de erro.
+    - Diagnóstico: export agora mostra preview do `journey.json`, permite **copiar JSON**, e loga no console os parâmetros do download para rastrear bloqueios do navegador.
 
 - **Merge de branches e consolidação na `main`**:
   - Merge de `chore/migrate-ai-actions-to-tasks`: introdução de endpoints em `/api/ai/tasks/*` (boards/deals/inbox) e migração parcial de chamadas para o novo client (`lib/ai/tasksClient.ts`), removendo rotas legacy.
