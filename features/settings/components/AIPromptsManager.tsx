@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PROMPT_CATALOG, type PromptCatalogItem } from '@/lib/ai/prompts/catalog';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/context/ToastContext';
-import { ChevronDown, ChevronUp, Copy, Loader2, Pencil, RotateCcw, Search, ShieldAlert, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Loader2, Pencil, RotateCcw, Search, ShieldAlert, Sparkles } from 'lucide-react';
 
 type ActiveByKey = Record<string, { version: number; updatedAt: string }>;
 
@@ -37,12 +37,6 @@ function extractVariablesFromNotes(notes?: string): string[] {
     .filter(Boolean);
 }
 
-/**
- * Componente React `AIPromptsManager`.
- *
- * @param {Props} { isAdmin } - Parâmetro `{ isAdmin }`.
- * @returns {Element} Retorna um valor do tipo `Element`.
- */
 export const AIPromptsManager: React.FC<Props> = ({ isAdmin }) => {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -212,12 +206,6 @@ export const AIPromptsManager: React.FC<Props> = ({ isAdmin }) => {
     }
   };
 
-  const goToFeatures = () => {
-    if (typeof window === 'undefined') return;
-    const el = document.getElementById('ai-features');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <div id="ai-prompts" className="scroll-mt-8">
       <div className="flex items-start justify-between mb-4 gap-4">
@@ -227,15 +215,6 @@ export const AIPromptsManager: React.FC<Props> = ({ isAdmin }) => {
             Edite prompts por organização. Mudanças impactam toda a empresa — menos é mais.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={goToFeatures}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/70 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50/70 dark:hover:bg-white/[0.06] transition-colors"
-          title="Ir para Funções de IA"
-        >
-          <SlidersHorizontal size={16} />
-          Funções de IA
-        </button>
       </div>
 
       {/* Controls (Jobs-style: simples e direto) */}
@@ -254,18 +233,7 @@ export const AIPromptsManager: React.FC<Props> = ({ isAdmin }) => {
           </div>
 
           {/* Segmented control (iOS-like) */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goToFeatures}
-              className="h-9 w-9 rounded-xl bg-slate-100/80 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.10] transition-colors inline-flex items-center justify-center"
-              title="Ir para Funções de IA"
-              aria-label="Ir para Funções de IA"
-            >
-              <SlidersHorizontal size={18} />
-            </button>
-
-            <div className="inline-flex items-center rounded-xl p-1 bg-slate-100/80 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/10">
+          <div className="inline-flex items-center rounded-xl p-1 bg-slate-100/80 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/10">
             {groups.map((g) => {
               const isActive = activeGroup === g;
               return (
@@ -283,7 +251,6 @@ export const AIPromptsManager: React.FC<Props> = ({ isAdmin }) => {
                 </button>
               );
             })}
-          </div>
           </div>
         </div>
       </div>
