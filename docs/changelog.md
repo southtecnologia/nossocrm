@@ -20,14 +20,14 @@
   - `activitiesService` agora persiste esses campos (com retry safe quando migration ainda não existe).
 - **Inbox (debug)**:
   - Botão **Seed Inbox** (apenas em debug) para criar dados que disparam sugestões de **Upsell**, **Stalled** e **Rescue**.
- - **Contatos / Empresas (UX + fix)**:
-   - Modal **Editar Contato** agora exibe e pré-preenche o campo **Empresa** (e permite **desvincular** deixando em branco).
-   - Ícones clicáveis para abrir edição de contato:
-     - Na aba **Pessoas**, clicar no **avatar** abre o modal de edição.
-     - Na aba **Empresas**, clicar no **ícone da empresa** abre um contato vinculado (primeiro da lista).
-     - Na aba **Empresas**, clicar no avatar em **“Pessoas Vinc.”** abre o modal de edição daquele contato.
- - **Inbox (UX)**:
-   - Empty-state **“Inbox Zero”** agora aparece também na view **Lista** (igual ao modo Foco), reutilizando `InboxZeroState`.
+- **Contatos / Empresas (UX + fix)**:
+  - Modal **Editar Contato** agora exibe e pré-preenche o campo **Empresa** (e permite **desvincular** deixando em branco).
+  - Ícones clicáveis para abrir edição de contato:
+    - Na aba **Pessoas**, clicar no **avatar** abre o modal de edição.
+    - Na aba **Empresas**, clicar no **ícone da empresa** abre um contato vinculado (primeiro da lista).
+    - Na aba **Empresas**, clicar no avatar em **“Pessoas Vinc.”** abre o modal de edição daquele contato.
+- **Inbox (UX)**:
+  - Empty-state **“Inbox Zero”** agora aparece também na view **Lista** (igual ao modo Foco), reutilizando `InboxZeroState`.
 
 ## 26/12/2025
 
