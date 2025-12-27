@@ -100,6 +100,27 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+## API, Data & Security Notes *(mandatory if feature touches data or network)*
+
+<!--
+  ACTION REQUIRED:
+  - If this feature reads/writes data: identify the source of truth (Supabase tables/RPCs, Next Route Handlers, Public API).
+  - Specify the auth model (user session vs API key) and RLS/tenant constraints.
+  - If this feature changes a Public API route, note the OpenAPI update requirement.
+  - If mobile/tablet/offline applies, state the offline behavior explicitly (cache, sync, conflict strategy).
+-->
+
+### API Surface
+
+- **Reads/Writes**: [Supabase tables/RPCs | app/api/* | app/api/public/v1/* | NEEDS CLARIFICATION]
+- **Authentication**: [User session (Supabase Auth) | X-Api-Key (Public API) | NEEDS CLARIFICATION]
+- **Tenant model**: [organization_id scoping + RLS | NEEDS CLARIFICATION]
+
+### Offline/Sync (if applicable)
+
+- **Offline behavior**: [read-only cache | offline mutations queued | not supported]
+- **Conflict strategy**: [last-write-wins | server-merge | needs design]
+
 ## Success Criteria *(mandatory)*
 
 <!--

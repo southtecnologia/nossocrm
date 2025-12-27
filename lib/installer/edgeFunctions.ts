@@ -257,7 +257,8 @@ export async function listAllSupabaseOrganizationProjects(params: {
     }
   | { ok: false; error: string; status?: number; response?: unknown }
 > {
-  const limit = 200;
+  // Supabase Management API enforces limit <= 100
+  const limit = 100;
   let offset = 0;
   const all: Array<{ ref: string; name: string; region?: string; status?: string; organizationSlug?: string }> = [];
   const responses: unknown[] = [];

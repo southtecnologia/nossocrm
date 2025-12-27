@@ -61,6 +61,9 @@
     - UX (cinematográfico — wizard inteiro): transições de cena agora acontecem também entre os passos **Vercel → Supabase → Admin → Review** (não só dentro do Supabase), mantendo o footer como “continuidade” para dar sensação de filme.
     - UX (cinematográfico — Piloto automático): ao clicar **“Instalar agora”**, abre um overlay “Piloto automático” com **timeline animada** e telemetria enquanto o backend executa; ao finalizar, mostra status real + Edge Functions e permite fechar/continuar.
     - UX (cinematográfico — do início ao fim): a tela inicial `/install/start` agora abre o “filme” com o mesmo ambiente visual (vignette + grain + nebula teal) e troca de cena (input → validando → confirmar → decolar), e o `/install` (redirect/loading) mantém o clima com o mesmo backdrop.
+    - Fix (Supabase org projects): corrigida paginação para respeitar o limite da API (`limit <= 100`), evitando erro **400** e loop de “Buscando…”.
+    - UX (Supabase criar projeto): gerador de `db_pass` compatível (>= 12) com botão **gerar + copiar**, e nome do projeto vem por padrão como **`nossocrm`** (com sufixo sugerido se já existir).
+    - UX (Supabase espaço): o resumo do PAT vira um **pill compacto** na etapa “Destino”, liberando área útil na tela.
     - UX (zero fricção): ao colar um PAT válido, o Supabase step tenta listar orgs automaticamente e **auto-avança** para “Destino” quando a verificação passa; se houver apenas 1 org, ela é selecionada automaticamente e o sistema já carrega os projetos.
 
 - **Build (fix)**:

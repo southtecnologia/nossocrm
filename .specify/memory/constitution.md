@@ -1,50 +1,80 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: template/unversioned → 1.0.0
+- Modified principles: N/A (template placeholders replaced)
+- Added sections: Technical Standards; Workflow & Quality Gates (filled)
+- Removed sections: N/A
+- Templates requiring updates:
+  - ✅ updated: .specify/templates/plan-template.md
+  - ✅ updated: .specify/templates/spec-template.md
+  - ✅ updated: .specify/templates/tasks-template.md
+- Follow-up TODOs:
+  - TODO(RATIFICATION_DATE): confirm if 2025-12-27 is the intended ratification date
+-->
+
+# NossoCRM Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Security & Tenant Isolation (NON-NEGOTIABLE)
+- Data access MUST be protected by **Supabase RLS** and tenant scoping via `organization_id`.
+- Secrets (AI keys, service role keys) MUST NOT be exposed to the client; keep them server-side.
+- Any new API surface MUST define its auth model explicitly (user session vs API key) and log/handle 401/403 correctly.
+- Public/Integration endpoints MUST be contract-first (OpenAPI) and stable.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Contract-First Interfaces
+- If you add/change endpoints under `app/api/public/v1/*`, you MUST update the OpenAPI source of truth and keep Swagger rendering working.
+- Any “client app” (web, iOS, integrations) MUST rely on a documented contract: OpenAPI for HTTP, shared types for internal modules.
+- Prefer fewer, well-designed endpoints over many ad-hoc ones; when an operation is composite (e.g., move stage + log + notify), create a single server-side contract for it.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Mobile-First UX & Responsive Shell
+- All new UI MUST be responsive and mobile-friendly; treat tablet as a first-class breakpoint.
+- Navigation MUST follow adaptive patterns: bottom navigation (mobile), rail (tablet), sidebar (desktop).
+- Modal-like flows on mobile SHOULD be implemented as sheets/fullscreen sheets to avoid layout breakage.
+- Accessibility is required: keyboard/focus management for dialogs/sheets, sufficient contrast, and semantic labels.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Offline & Sync Correctness (when applicable)
+- If a feature claims offline support, it MUST define: local source of truth, mutation queue, retry/backoff, and conflict strategy.
+- Server operations used by offline queues MUST be idempotent or safely retryable.
+- Sync MUST be observable: track last sync cursor/time and surface actionable errors to users.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Quality Gates & Living Documentation
+- Significant changes MUST update `docs/changelog.md` with date (DD/MM/AAAA), summary, and technical notes.
+- Code MUST remain type-safe (TypeScript), lint-clean, and readable (small modules, clear naming).
+- Tests are required when a change impacts: auth/RLS, Public API contract, data migrations, or critical business flows.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technical Standards
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Primary stack**: Next.js (App Router), React, TypeScript, Supabase (Auth/Postgres/RLS), TanStack Query, Tailwind CSS.
+- **API strategy**:
+  - Internal web app: can use Supabase SDK directly with RLS.
+  - Public/Integrations: `app/api/public/v1/*` with OpenAPI contract and `X-Api-Key`.
+  - Composite operations: prefer server-side endpoints (Route Handlers / Edge Functions) to avoid duplicating business rules in clients.
+- **Performance**:
+  - Prefer pagination/cursors for large lists; avoid “fetch everything forever”.
+  - Use optimistic updates carefully; always reconcile server truth.
+- **Accessibility**:
+  - Focus trapping for dialogs/sheets; proper `aria-*` labels; avoid keyboard traps.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Workflow & Quality Gates
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- **Spec-driven delivery**: non-trivial work SHOULD start with a spec and plan (Speckit templates).
+- **PR checklist**:
+  - RLS/auth impact reviewed
+  - OpenAPI updated if Public API changed
+  - Changelog updated for significant changes
+  - Mobile/tablet UX verified for UI changes
+- **Versioning policy for this constitution**: SemVer (MAJOR incompatible governance changes, MINOR new/expanded principles, PATCH clarifications).
 
 ## Governance
 <!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution supersedes lower-level docs when conflicts exist.
+- Amendments MUST:
+  - describe the change,
+  - include migration/rollout notes when behavior changes,
+  - update dependent templates if they encode gates/sections.
+- Compliance is checked during review: changes that violate principles require explicit justification and mitigation.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
+**Version**: 1.0.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-27
 <!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->

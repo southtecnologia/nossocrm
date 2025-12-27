@@ -31,7 +31,12 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Security/RLS**: any data access MUST respect tenant isolation (`organization_id`) and Supabase RLS.
+- **API contracts**: if Public API (`app/api/public/v1/*`) changes, OpenAPI MUST be updated and backwards compatibility reviewed.
+- **Mobile/tablet UX**: if UI changes, verify responsive behavior (mobile + tablet) and prefer sheets over heavy modals on mobile.
+- **Docs/Changelog**: significant changes MUST update `docs/changelog.md` (DD/MM/AAAA + summary + technical notes).
+
+Source of truth: `.specify/memory/constitution.md`.
 
 ## Project Structure
 

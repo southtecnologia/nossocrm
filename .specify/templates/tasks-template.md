@@ -25,6 +25,18 @@ description: "Task list template for feature implementation"
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
 
+## NossoCRM Notes (project-specific)
+
+- This repository is a **Next.js App Router** monorepo-style layout (no `src/` root by default):
+  - UI routes: `app/` (including `app/(protected)/*`)
+  - Feature modules: `features/`
+  - Shared components: `components/`
+  - Data/auth/security: `lib/`, `context/`, `supabase/`
+- If tasks change security/RLS, Public API contracts, or core UX, include tasks for:
+  - `docs/changelog.md` update (significant changes)
+  - OpenAPI update (when touching `app/api/public/v1/*`)
+  - Mobile/tablet verification (when touching UI)
+
 <!-- 
   ============================================================================
   IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.

@@ -68,6 +68,33 @@ function maskValue(value: string, start = 4, end = 4) {
   return `${trimmed.slice(0, start)}...${trimmed.slice(-end)}`;
 }
 
+function generateStrongSupabaseDbPass(length = 20) {
+  // Safe character set (avoid quotes/backslashes to reduce copy/paste headaches)
+  const chars =
+    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*_-+=';
+  const n = Math.max(12, Math.min(64, length));
+  const bytes = new Uint8Array(n);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    out += chars[bytes[i] % chars.length];
+  }
+  return out;
+}
+
+function suggestSupabaseProjectName(existingNames: string[]) {
+  const base = 'nossocrm';
+  const lower = new Set(
+    existingNames.map((n) => (n || '').toLowerCase().trim()).filter(Boolean)
+  );
+  if (!lower.has(base)) return base;
+  for (let i = 2; i < 50; i++) {
+    const candidate = `${base}-${i}`;
+    if (!lower.has(candidate)) return candidate;
+  }
+  return `${base}-${Math.floor(Date.now() / 1000)}`;
+}
+
 /**
  * Componente React `InstallWizardPage`.
  * @returns {Element} Retorna um valor do tipo `Element`.
@@ -132,6 +159,7 @@ export default function InstallWizardPage() {
   const [supabaseDeleteConfirmRef, setSupabaseDeleteConfirmRef] = useState('');
   const [supabaseCreateName, setSupabaseCreateName] = useState('');
   const [supabaseCreateDbPass, setSupabaseCreateDbPass] = useState('');
+  const [supabaseDbPassCopied, setSupabaseDbPassCopied] = useState(false);
   const [supabaseCreateRegion, setSupabaseCreateRegion] = useState<'americas' | 'emea' | 'apac'>('americas');
   const [supabaseCreating, setSupabaseCreating] = useState(false);
   const [supabaseCreateError, setSupabaseCreateError] = useState<string | null>(null);
@@ -554,6 +582,8 @@ export default function InstallWizardPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao listar projetos da org';
       setSupabaseOrgProjectsError(message);
+      // Evita loop infinito de auto-fetch quando o erro é persistente (ex.: payload 400).
+      setSupabaseOrgProjectsLoadedKey(`${supabaseAccessToken.trim()}::${organizationSlug}`);
     } finally {
       setSupabaseOrgProjectsLoading(false);
     }
@@ -686,6 +716,15 @@ export default function InstallWizardPage() {
     supabaseOrgProjectsLoading,
     supabaseOrgProjectsLoadedKey,
   ]);
+
+  useEffect(() => {
+    // Default nome do projeto (zero fricção): "nossocrm" (com sufixo se já existir).
+    if (supabaseUiStep !== 'project') return;
+    if (supabaseMode !== 'create') return;
+    if (supabaseCreateName.trim()) return;
+    const existingNames = supabaseOrgProjects.map((p) => p.name).filter(Boolean) as string[];
+    setSupabaseCreateName(suggestSupabaseProjectName(existingNames));
+  }, [supabaseUiStep, supabaseMode, supabaseCreateName, supabaseOrgProjects]);
 
   useEffect(() => {
     // Se temos orgs carregadas e ainda não escolhemos uma, aplica um default (primeira org).
@@ -1097,8 +1136,8 @@ export default function InstallWizardPage() {
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-white/70 dark:bg-slate-900/30 space-y-2">
+                  ) : supabaseUiStep === 'final' ? (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-white/70 dark:bg-slate-900/30 space-y-2">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-semibold text-slate-900 dark:text-white">
                           1) PAT ✅
@@ -1121,7 +1160,7 @@ export default function InstallWizardPage() {
                         )}
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Step 2: Choose / create project */}
                   {supabaseUiStep === 'project' ? (
@@ -1130,23 +1169,33 @@ export default function InstallWizardPage() {
                         <div className="text-sm font-semibold text-slate-900 dark:text-white">
                           2) Escolha (ou crie) o projeto Supabase
                         </div>
-                        {supabaseUrl.trim() ? (
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setSupabaseUrl('');
-                              setSupabaseProjectRef('');
-                              setSupabaseProjectRefTouched(false);
-                              setSupabaseResolvedOk(false);
-                              setSupabaseResolvedLabel(null);
-                              setSupabaseResolveError(null);
-                              setSupabaseUiStep('project');
-                            }}
-                            className="text-xs underline underline-offset-2 text-slate-600 dark:text-slate-300"
+                            onClick={() => setSupabaseUiStep('pat')}
+                            className="px-2 py-1 rounded-full text-[11px] font-semibold border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/30 text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-white/10"
+                            title="Editar PAT"
                           >
-                            trocar projeto
+                            PAT ✅ <span className="font-mono">{maskValue(supabaseAccessToken)}</span>
                           </button>
-                        ) : null}
+                          {supabaseUrl.trim() ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSupabaseUrl('');
+                                setSupabaseProjectRef('');
+                                setSupabaseProjectRefTouched(false);
+                                setSupabaseResolvedOk(false);
+                                setSupabaseResolvedLabel(null);
+                                setSupabaseResolveError(null);
+                                setSupabaseUiStep('project');
+                              }}
+                              className="text-xs underline underline-offset-2 text-slate-600 dark:text-slate-300"
+                            >
+                              trocar projeto
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
@@ -1173,8 +1222,7 @@ export default function InstallWizardPage() {
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        A recomendação é <b>criar um projeto novo</b> pra evitar “lixo” (Auth/Storage/secrets) de outros apps.
-                        Se faltar slot no Free, você pode <b>pausar</b> ou <b>deletar</b> um projeto antigo por aqui.
+                        Recomendado: <b>criar um projeto novo</b>. Se faltar slot no Free, você pode <b>pausar</b> ou <b>deletar</b> um antigo aqui.
                       </p>
 
                       {supabaseOrgs.length > 1 ? (
@@ -1496,20 +1544,53 @@ export default function InstallWizardPage() {
                             <input
                               value={supabaseCreateName}
                               onChange={(e) => setSupabaseCreateName(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
-                              placeholder="ex: crmia-aluno"
+                              className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 ${TEAL.ring}`}
+                              placeholder="nossocrm"
                             />
                           </div>
 
                           <div className="space-y-2">
-                            <label className="text-sm text-slate-600 dark:text-slate-300">
-                              Senha do banco (db_pass)
-                            </label>
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-sm text-slate-600 dark:text-slate-300">
+                                Senha do banco (db_pass)
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSupabaseCreateDbPass(generateStrongSupabaseDbPass(20));
+                                    setSupabaseDbPassCopied(false);
+                                  }}
+                                  className="text-xs underline underline-offset-2"
+                                >
+                                  gerar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!supabaseCreateDbPass.trim()}
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(supabaseCreateDbPass);
+                                      setSupabaseDbPassCopied(true);
+                                      setTimeout(() => setSupabaseDbPassCopied(false), 1200);
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  className="text-xs underline underline-offset-2 disabled:opacity-50"
+                                >
+                                  {supabaseDbPassCopied ? 'copiado' : 'copiar'}
+                                </button>
+                              </div>
+                            </div>
                             <input
                               type="password"
                               value={supabaseCreateDbPass}
-                              onChange={(e) => setSupabaseCreateDbPass(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+                              onChange={(e) => {
+                                setSupabaseCreateDbPass(e.target.value);
+                                setSupabaseDbPassCopied(false);
+                              }}
+                              className={`w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 ${TEAL.ring}`}
                               placeholder="mínimo 12 caracteres"
                             />
                             <p className="text-xs text-slate-500 dark:text-slate-400">
