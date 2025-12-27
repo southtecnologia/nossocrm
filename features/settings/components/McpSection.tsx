@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ServerCog, Copy, ExternalLink, CheckCircle2, Play, TerminalSquare, AlertTriangle, RefreshCw, ChevronDown } from 'lucide-react';
+import { ServerCog, Copy, CheckCircle2, Play, AlertTriangle, RefreshCw, ChevronDown } from 'lucide-react';
 import { useOptionalToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase/client';
 import { SettingsSection } from './SettingsSection';
@@ -12,7 +12,7 @@ export const McpSection: React.FC = () => {
   const { addToast } = useOptionalToast();
 
   const endpointPath = '/api/mcp';
-  const metadataUrl = '/api/mcp';
+  const protocolVersion = '2025-11-25';
 
   const [apiKey, setApiKey] = useState('');
   const [creatingKey, setCreatingKey] = useState(false);
@@ -25,33 +25,20 @@ export const McpSection: React.FC = () => {
     toolsPreview?: string[];
     testedAtIso?: string;
   } | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showHaveKey, setShowHaveKey] = useState(false);
 
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
 
   const origin = useMemo(() => (typeof window !== 'undefined' ? window.location.origin : ''), []);
   const fullEndpoint = useMemo(() => (origin ? `${origin}${endpointPath}` : endpointPath), [origin]);
-  const inspectorCommand = useMemo(
-    () => `npx @modelcontextprotocol/inspector@latest ${fullEndpoint}`,
-    [fullEndpoint]
-  );
-
-  const curlInitialize = useMemo(() => {
-    return `curl -sS -X POST '${fullEndpoint}' \\
-  -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer <API_KEY>' \\
-  -H 'MCP-Protocol-Version: 2025-11-25' \\
-  --data-raw '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"curl","version":"0"},"capabilities":{}}}'`;
-  }, [fullEndpoint]);
-
-  const curlToolsList = useMemo(() => {
-    return `curl -sS -X POST '${fullEndpoint}' \\
-  -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer <API_KEY>' \\
-  -H 'MCP-Protocol-Version: 2025-11-25' \\
-  --data-raw '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'`;
-  }, [fullEndpoint]);
+  const copyUrlAndToken = async () => {
+    const token = apiKey.trim();
+    if (!token) {
+      addToast('Sem token. Clique em Conectar para gerar.', 'warning');
+      return;
+    }
+    await copy('URL + Token', `URL\n${fullEndpoint}\n\nTOKEN\n${token}`);
+  };
 
   const copy = async (label: string, value: string) => {
     try {
@@ -59,20 +46,6 @@ export const McpSection: React.FC = () => {
       addToast(`${label} copiado.`, 'success');
     } catch {
       addToast(`Não foi possível copiar ${label.toLowerCase()}.`, 'error');
-    }
-  };
-
-  const copyMetadata = async () => {
-    try {
-      const res = await fetch(metadataUrl, { method: 'GET' });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json) {
-        addToast('Não foi possível obter metadata.', 'error');
-        return;
-      }
-      await copy('Metadata', JSON.stringify(json, null, 2));
-    } catch {
-      addToast('Não foi possível obter metadata.', 'error');
     }
   };
 
@@ -141,7 +114,7 @@ export const McpSection: React.FC = () => {
     try {
       const commonHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
-        'MCP-Protocol-Version': '2025-11-25',
+        'MCP-Protocol-Version': protocolVersion,
         // Prefer Bearer for MCP clients; also send X-Api-Key for compatibility.
         Authorization: `Bearer ${token}`,
         'X-Api-Key': token,
@@ -268,11 +241,11 @@ export const McpSection: React.FC = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={() => copy('URL do MCP', fullEndpoint)}
+                  onClick={copyUrlAndToken}
                   className="px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold inline-flex items-center gap-2"
                 >
                   <Copy className="h-4 w-4" />
-                  Copiar URL do MCP
+                  Copiar URL + Token
                 </button>
               )}
 
@@ -303,11 +276,26 @@ export const McpSection: React.FC = () => {
                 ) : null}
               </div>
               <div className="mt-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-white/70 dark:bg-black/20 p-3">
-                <div className="text-xs text-slate-700 dark:text-slate-200">
-                  URL do MCP:
+                <div className="text-xs text-slate-700 dark:text-slate-200 mb-2">
+                  O que você precisa:
                 </div>
-                <div className="mt-1 text-xs font-mono break-all text-slate-800 dark:text-slate-100">
-                  {fullEndpoint}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={copyUrlAndToken}
+                    className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold inline-flex items-center gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copiar URL + Token
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copy('URL do MCP', fullEndpoint)}
+                    className="px-3 py-2 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-white/70 dark:bg-black/20 hover:bg-white text-emerald-800 dark:text-emerald-200 text-sm font-semibold inline-flex items-center gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copiar URL
+                  </button>
                 </div>
               </div>
             </div>
@@ -359,118 +347,6 @@ export const McpSection: React.FC = () => {
               </div>
               <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                 Precisa revogar/ver histórico? <button type="button" onClick={navigateToApiKeys} className="underline">Gerenciar API keys</button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Detalhes técnicos (colapsável) */}
-        <div className="mt-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100"
-          >
-            <span className="inline-flex items-center gap-2">
-              <TerminalSquare className="h-4 w-4" />
-              Avançado
-            </span>
-            <span className="text-slate-500 dark:text-slate-400">{showAdvanced ? 'Ocultar' : 'Mostrar'}</span>
-          </button>
-
-          {showAdvanced && (
-            <div className="px-4 pb-4">
-              <div className="text-xs text-slate-600 dark:text-slate-300 mb-3">
-                Para clientes MCP customizados e diagnóstico.
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => copy('Comando MCP Inspector', inspectorCommand)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-                >
-                  <TerminalSquare className="h-4 w-4" />
-                  Copiar comando do Inspector
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copy('cURL initialize', curlInitialize)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-                >
-                  <TerminalSquare className="h-4 w-4" />
-                  Copiar initialize
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copy('cURL tools/list', curlToolsList)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-                >
-                  <TerminalSquare className="h-4 w-4" />
-                  Copiar tools/list
-                </button>
-                <button
-                  type="button"
-                  onClick={copyMetadata}
-                  className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-                >
-                  <Copy className="h-4 w-4" />
-                  Copiar metadata
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">initialize</div>
-                  <pre className="text-xs font-mono whitespace-pre-wrap rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3 text-slate-800 dark:text-slate-100">
-                    {curlInitialize}
-                  </pre>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">tools/list</div>
-                  <pre className="text-xs font-mono whitespace-pre-wrap rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3 text-slate-800 dark:text-slate-100">
-                    {curlToolsList}
-                  </pre>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3">
-                <div className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1 inline-flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  ChatGPT (Fase 2)
-                </div>
-                <div className="text-xs text-amber-800/80 dark:text-amber-200/80">
-                  Para conectar no ChatGPT, o MCP autenticado precisa de OAuth 2.1/PKCE. Esta tela cobre a Fase 1 (API key) para Inspector e clientes MCP controlados por você.
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-black/20 p-3">
-                <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2 inline-flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  Metadata (debug)
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-300 mb-3">
-                  Esse JSON existe para diagnóstico/healthcheck. No dia a dia, você normalmente só precisa da URL do MCP e da API key.
-                </div>
-                <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-                    onClick={copyMetadata}
-              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-            >
-              <Copy className="h-4 w-4" />
-                    Copiar metadata
-            </button>
-            <a
-                    href={metadataUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-white text-sm font-semibold inline-flex items-center gap-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-                    Abrir metadata
-            </a>
-          </div>
               </div>
             </div>
           )}

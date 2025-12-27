@@ -7,6 +7,7 @@
   - Detalhe técnico: o teste da UI chama `initialize` + `tools/list` no endpoint `/api/mcp` usando `Authorization: Bearer` (e fallback `X-Api-Key`) e reporta quantidade/preview de tools.
   - UX: agora o Passo 1 pode **gerar a API key direto na tela** (RPC `create_api_key`) e já preenche o Passo 2 automaticamente; “metadata (JSON)” virou **Copiar** (e “Abrir” ficou em seção avançada).
   - UX (Jobs cut): a tela agora tem **um único CTA principal (“Conectar”)** que faz tudo (gera key + testa) e, ao finalizar, mostra “Pronto” com o próximo passo (copiar comando do Inspector). Conteúdo técnico ficou em **Avançado**.
+  - UX (app próprio): removidos artefatos de dev (curl/metadata/inspector) do fluxo; após “Pronto”, a CTA principal vira **“Copiar URL + Token”** (o único dado que o app do aluno precisa).
 
 - **MCP (foundation)**:
   - Criado o catálogo canônico de tools do CRM para MCP (nomes padrão `crm.*`, títulos e descrições) em `lib/mcp/crmToolCatalog.ts`.
@@ -45,8 +46,12 @@
     - Ao colar o **PAT**, o Wizard agora **lista projetos automaticamente** (com debounce) e, se não encontrar nenhum, sugere **criar um projeto automaticamente** (já seguindo com auto-preenchimento).
     - Refatorado para **progressive disclosure**: primeiro pede só o **PAT**, depois o usuário escolhe/cria o projeto (com seleção de **organização** quando houver múltiplas), e só então aparecem toggles/detalhes (campos avançados ficam escondidos).
     - Copy: esclarecido que o token necessário é o **Access Token (PAT)** (prefixo `sbp_`) e **não** o token da “Experimental API”.
-    - Troubleshooting: o Wizard agora alerta quando detecta **2+ projetos ativos** (limite do Free) e mostra orientação antes de tentar criar projeto.
-    - Troubleshooting (mágico): quando detecta 2+ ativos, o Wizard lista os projetos ativos e oferece “**Usar este projeto**” para selecionar com 1 clique.
+    - Troubleshooting: o Wizard agora alerta quando detecta **2 projetos ativos** no plano **free** da **organização** selecionada e mostra orientação antes de tentar criar projeto.
+    - Troubleshooting (mágico): quando detecta 2 ativos, o Wizard lista os projetos ativos e oferece “**Usar este projeto**” para selecionar com 1 clique.
+    - Troubleshooting (zero lixo): quando não há slot no Free, o Wizard oferece ações de **liberar slot**:
+      - pausar projeto via `POST /v1/projects/{ref}/pause` (reversível)
+      - deletar projeto via `DELETE /v1/projects/{ref}` (destrutivo; exige confirmação digitando o `ref`)
+    - Detalhe técnico: o Wizard usa `GET /v1/organizations/{slug}` para exibir o `plan` e `GET /v1/organizations/{slug}/projects` (com filtro de status) para contar/mostrar projetos por org.
 
 - **Build (fix)**:
   - Corrigidos erros de typecheck no build (`next build`):

@@ -106,6 +106,12 @@ type SupabaseProjectListItem = {
 };
 
 type SupabaseOrgListItem = { id?: string; slug?: string; name?: string };
+type SupabaseOrganizationDetails = { id?: string; name?: string; plan?: string };
+
+type SupabaseOrgProjectsResponse = {
+  projects?: SupabaseProjectListItem[];
+  pagination?: { count?: number; limit?: number; offset?: number };
+};
 
 export async function listSupabaseProjects(params: { accessToken: string }): Promise<
   | { ok: true; projects: Array<{ ref: string; name: string; region?: string; status?: string; organizationSlug?: string }>; response: unknown }
@@ -152,6 +158,83 @@ export async function listSupabaseOrganizations(params: { accessToken: string })
   return { ok: true, organizations, response: res.data };
 }
 
+export async function getSupabaseOrganization(params: {
+  accessToken: string;
+  organizationSlug: string;
+}): Promise<
+  | { ok: true; organization: { slug: string; name?: string; id?: string; plan?: string }; response: unknown }
+  | { ok: false; error: string; status?: number; response?: unknown }
+> {
+  const res = await supabaseManagementFetch(
+    `/v1/organizations/${encodeURIComponent(params.organizationSlug)}`,
+    params.accessToken,
+    { method: 'GET' }
+  );
+  if (!res.ok) return { ok: false, error: res.error, status: res.status, response: res.data };
+
+  const details = res.data as SupabaseOrganizationDetails;
+  return {
+    ok: true,
+    organization: {
+      slug: params.organizationSlug,
+      id: typeof details?.id === 'string' ? details.id : undefined,
+      name: typeof details?.name === 'string' ? details.name : undefined,
+      plan: typeof details?.plan === 'string' ? details.plan : undefined,
+    },
+    response: res.data,
+  };
+}
+
+export async function listSupabaseOrganizationProjects(params: {
+  accessToken: string;
+  organizationSlug: string;
+  statuses?: string[];
+  offset?: number;
+  limit?: number;
+  search?: string;
+}): Promise<
+  | {
+      ok: true;
+      projects: Array<{ ref: string; name: string; region?: string; status?: string; organizationSlug?: string }>;
+      response: unknown;
+    }
+  | { ok: false; error: string; status?: number; response?: unknown }
+> {
+  const qs = new URLSearchParams();
+  if (typeof params.offset === 'number') qs.set('offset', String(params.offset));
+  if (typeof params.limit === 'number') qs.set('limit', String(params.limit));
+  if (typeof params.search === 'string' && params.search.trim()) qs.set('search', params.search.trim());
+  if (Array.isArray(params.statuses) && params.statuses.length > 0) {
+    qs.set('statuses', params.statuses.join(','));
+  }
+
+  const res = await supabaseManagementFetch(
+    `/v1/organizations/${encodeURIComponent(params.organizationSlug)}/projects${qs.toString() ? `?${qs.toString()}` : ''}`,
+    params.accessToken,
+    { method: 'GET' }
+  );
+  if (!res.ok) return { ok: false, error: res.error, status: res.status, response: res.data };
+
+  const payload = res.data as SupabaseOrgProjectsResponse;
+  const items = (Array.isArray(payload?.projects) ? payload.projects : []) as SupabaseProjectListItem[];
+  const projects = items
+    .map((p) => ({
+      ref: typeof p.ref === 'string' ? p.ref : '',
+      name: typeof p.name === 'string' ? p.name : '',
+      region: typeof p.region === 'string' ? p.region : undefined,
+      status: typeof p.status === 'string' ? p.status : undefined,
+      organizationSlug:
+        typeof p.organization_slug === 'string'
+          ? p.organization_slug
+          : typeof p.organizationSlug === 'string'
+            ? p.organizationSlug
+            : params.organizationSlug,
+    }))
+    .filter((p) => p.ref && p.name);
+
+  return { ok: true, projects, response: res.data };
+}
+
 export async function createSupabaseProject(params: {
   accessToken: string;
   organizationSlug: string;
@@ -185,6 +268,54 @@ export async function createSupabaseProject(params: {
   }
 
   return { ok: true, projectRef: projectRef.trim(), projectName, response: res.data };
+}
+
+export async function pauseSupabaseProject(params: {
+  accessToken: string;
+  projectRef: string;
+}): Promise<
+  | { ok: true; response: unknown }
+  | { ok: false; error: string; status?: number; response?: unknown }
+> {
+  const res = await supabaseManagementFetch(
+    `/v1/projects/${encodeURIComponent(params.projectRef)}/pause`,
+    params.accessToken,
+    { method: 'POST' }
+  );
+  if (!res.ok) return { ok: false, error: res.error, status: res.status, response: res.data };
+  return { ok: true, response: res.data };
+}
+
+export async function restoreSupabaseProject(params: {
+  accessToken: string;
+  projectRef: string;
+}): Promise<
+  | { ok: true; response: unknown }
+  | { ok: false; error: string; status?: number; response?: unknown }
+> {
+  const res = await supabaseManagementFetch(
+    `/v1/projects/${encodeURIComponent(params.projectRef)}/restore`,
+    params.accessToken,
+    { method: 'POST' }
+  );
+  if (!res.ok) return { ok: false, error: res.error, status: res.status, response: res.data };
+  return { ok: true, response: res.data };
+}
+
+export async function deleteSupabaseProject(params: {
+  accessToken: string;
+  projectRef: string;
+}): Promise<
+  | { ok: true; response: unknown }
+  | { ok: false; error: string; status?: number; response?: unknown }
+> {
+  const res = await supabaseManagementFetch(
+    `/v1/projects/${encodeURIComponent(params.projectRef)}`,
+    params.accessToken,
+    { method: 'DELETE' }
+  );
+  if (!res.ok) return { ok: false, error: res.error, status: res.status, response: res.data };
+  return { ok: true, response: res.data };
 }
 
 export function extractProjectRefFromSupabaseUrl(supabaseUrl: string): string | null {
