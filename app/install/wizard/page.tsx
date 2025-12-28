@@ -597,7 +597,33 @@ export default function InstallWizardPage() {
       if (data?.projectRef) setSupabaseProjectRef(data.projectRef);
       if (data?.publishableKey) setSupabaseAnonKey(data.publishableKey);
       if (data?.secretKey) setSupabaseServiceKey(data.secretKey);
-      if (data?.dbUrl) setSupabaseDbUrl(data.dbUrl);
+
+      // IMPORTANT: For fresh projects we already know the DB password (supabaseCreateDbPass).
+      // The CLI login-role URL can lack privileges for schema `storage`, causing false 'storage not ready' stalls.
+      // So: keep postgres.<ref> user with our known password, but reuse the pooler host/port from the resolver.
+      if (data?.dbUrl) {
+        try {
+          const resolvedRef = String(data?.projectRef || ref || '').trim();
+          const haveCreatePass = Boolean(supabaseCreateDbPass && supabaseCreateDbPass.length >= 12);
+          const u = new URL(String(data.dbUrl));
+          const hostPort = u.host;
+          const dbName = u.pathname?.replace(/^\//, '') || 'postgres';
+          const pgbouncer = u.searchParams.get('pgbouncer') || 'true';
+          const sslmode = u.searchParams.get('sslmode') || 'require';
+
+          if (haveCreatePass && resolvedRef) {
+            const user = `postgres.${resolvedRef}`;
+            const rebuilt =
+              `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(supabaseCreateDbPass)}` +
+              `@${hostPort}/${dbName}?sslmode=${encodeURIComponent(sslmode)}&pgbouncer=${encodeURIComponent(pgbouncer)}`;
+            setSupabaseDbUrl(rebuilt);
+          } else if (!supabaseDbUrl.trim()) {
+            setSupabaseDbUrl(String(data.dbUrl));
+          }
+        } catch {
+          if (!supabaseDbUrl.trim()) setSupabaseDbUrl(String(data.dbUrl));
+        }
+      }
       
       const warnings = data?.warnings || [];
       const hasDbUrl = Boolean(supabaseDbUrl.trim() || data?.dbUrl);
