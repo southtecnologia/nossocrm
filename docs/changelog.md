@@ -2,6 +2,10 @@
 
 ## 28/12/2025
 
+- **Installer — Nome de projeto já existe (retry/F5)**:
+  - **`create-project` agora é resiliente**: se o Supabase responder "already exists", o backend lista projetos da org e **reaproveita** o projeto existente em vez de travar
+
+
 - **Installer — Fix migrations retry + Pooler oficial (Supavisor)**:
   - **Retry de conexão PG sem reutilizar client**: evita erro "Client has already been connected" durante `migrations`
   - **DB URL via Supavisor Transaction Pooler**: usa `GET /v1/projects/{ref}/config/database/pooler` para obter `aws-*-REGION.pooler.supabase.com:6543`
