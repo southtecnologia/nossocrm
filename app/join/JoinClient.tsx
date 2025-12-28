@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getErrorMessage } from '@/utils/errorUtils'
 import { Loader2, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react'
@@ -9,11 +9,15 @@ import { Loader2, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react
 /**
  * Componente React `JoinClient`.
  *
- * @param {{ token: string | null; }} { token } - Parâmetro `{ token }`.
+ * @param {{ token: string | null; }} { token } - Parâmetro `{ token }` (opcional, lê da URL se não fornecido).
  * @returns {Element} Retorna um valor do tipo `Element`.
  */
-export function JoinClient({ token }: { token: string | null }) {
+export function JoinClient({ token: tokenProp }: { token?: string | null }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Lê o token da URL se não foi fornecido como prop (fallback para compatibilidade)
+  const token = tokenProp ?? searchParams.get('token')
 
   const [loading, setLoading] = useState(false)
   const [validating, setValidating] = useState(true)
@@ -41,8 +45,18 @@ export function JoinClient({ token }: { token: string | null }) {
         })
 
         const payload = await res.json().catch(() => null)
+        
+        // Log para debug
+        console.log('[JoinClient] Validation response:', { 
+          ok: res.ok, 
+          status: res.status, 
+          payload 
+        })
+        
         if (!res.ok || !payload?.valid) {
-          throw new Error(payload?.error || 'Este convite não existe ou já foi utilizado.')
+          const errorMsg = payload?.error || 'Este convite não existe ou já foi utilizado.'
+          console.error('[JoinClient] Validation failed:', errorMsg)
+          throw new Error(errorMsg)
         }
 
         setInviteData(payload.invite)
@@ -50,6 +64,7 @@ export function JoinClient({ token }: { token: string | null }) {
           setFormData(prev => ({ ...prev, email: payload.invite.email }))
         }
       } catch (err: any) {
+        console.error('[JoinClient] Error validating token:', err)
         setError(getErrorMessage(err))
       } finally {
         setValidating(false)

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { JoinClient } from './JoinClient'
 
 /**
@@ -22,5 +23,16 @@ export default function JoinPage({
         ? searchParams?.token?.[0] ?? null
         : null
 
-  return <JoinClient token={token} />
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-dark-bg">
+        <div className="text-center">
+          <div className="h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <JoinClient token={token} />
+    </Suspense>
+  )
 }

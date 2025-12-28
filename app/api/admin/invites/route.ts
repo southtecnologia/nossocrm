@@ -14,7 +14,7 @@ type Role = 'admin' | 'vendedor';
 const CreateInviteSchema = z
   .object({
     role: z.enum(['admin', 'vendedor']).default('vendedor'),
-    expiresAt: z.string().datetime().nullable().optional(),
+    expiresAt: z.union([z.string().datetime(), z.null()]).optional(),
     email: z.string().email().optional(),
   })
   .strict();
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
   const raw = await req.json().catch(() => null);
   const parsed = CreateInviteSchema.safeParse(raw);
   if (!parsed.success) {
+    console.error('[admin/invites POST] Validation error:', parsed.error.flatten());
     return json({ error: 'Invalid payload', details: parsed.error.flatten() }, 400);
   }
 
@@ -101,7 +102,11 @@ export async function POST(req: Request) {
     .select('id, token, role, email, created_at, expires_at, used_at, created_by')
     .single();
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) {
+    console.error('[admin/invites POST] Database error:', error);
+    return json({ error: error.message }, 500);
+  }
 
+  console.log('[admin/invites POST] Created invite:', { id: invite?.id, token: invite?.token, expires_at: invite?.expires_at });
   return json({ invite }, 201);
 }

@@ -13,6 +13,14 @@
     - Verificação adicional quando o token não é encontrado para identificar se foi usado ou expirado
     - Logs de erro para facilitar debug
 
+- **Fix (Convites — Schema Zod para expiresAt)**:
+  - Corrigido schema Zod no endpoint `/api/admin/invites` POST: `expiresAt` agora aceita corretamente `null` quando a opção "Nunca" é selecionada. Antes, o schema `z.string().datetime().nullable()` rejeitava `null` porque esperava sempre uma string.
+  - Adicionados logs de debug no endpoint POST para facilitar troubleshooting de erros de validação e inserção no banco.
+
+- **Fix (Convites — JoinClient lê token da URL diretamente)**:
+  - Corrigido problema onde `JoinClient` não conseguia validar tokens de convite: agora o componente lê o token diretamente da URL usando `useSearchParams()` do Next.js, em vez de depender apenas do prop do Server Component. Isso resolve casos onde `searchParams` não estava disponível no primeiro render.
+  - Adicionados logs de debug no `JoinClient` para facilitar troubleshooting de problemas de validação.
+
 - **Fix (Proxy/Manifest)**:
   - Corrigido erro de sintaxe no `manifest.webmanifest`: o proxy estava interceptando a requisição do manifest e retornando HTML inválido. Adicionado `manifest.webmanifest` à lista de exclusões do matcher do `proxy.ts` para permitir que o Next.js sirva o manifest corretamente como JSON.
 
