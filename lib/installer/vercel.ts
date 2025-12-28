@@ -27,6 +27,7 @@ type VercelEnv = {
 type VercelDeployment = {
   id?: string;
   uid?: string;
+  name?: string;
   target?: 'production' | 'preview' | 'development';
 };
 
@@ -282,10 +283,14 @@ export async function triggerProjectRedeploy(
     throw new Error('No deployments found for this project.');
   }
 
+  // Redeploy via criação de novo deployment (mais compatível do que "/redeploy" em alguns projetos)
   await vercelFetch(
-    `/v13/deployments/${deploymentId}/redeploy`,
+    `/v13/deployments`,
     token,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      body: JSON.stringify({ deploymentId, target: 'production' }),
+    },
     teamId
   );
 }
