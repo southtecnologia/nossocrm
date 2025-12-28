@@ -160,6 +160,13 @@ export async function POST(req: Request) {
   // Run installation in background
   (async () => {
     let functions: SupabaseFunctionDeployResult[] | undefined;
+    const startTime = Date.now();
+    const log = (step: string, detail?: string) => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[run-stream] [${elapsed}s] ${step}${detail ? ': ' + detail : ''}`);
+    };
+    
+    log('🚀 INÍCIO', `skippedSteps=${JSON.stringify(skippedSteps)}`);
 
     try {
       const resolvedProjectRef =
@@ -193,8 +200,10 @@ export async function POST(req: Request) {
       }
 
       // Phase 1: Coordinates (Vercel envs + resolve keys)
+      log('📍 PHASE 1: Calibrando coordenadas');
       await sendPhase('coordinates', 5);
 
+      log('🔑 Resolvendo chaves', `needsKeys=${needsKeys}`);
       if (needsKeys) {
         const keys = await resolveSupabaseApiKeys({
           projectRef: resolvedProjectRef,
@@ -206,11 +215,13 @@ export async function POST(req: Request) {
           return;
         }
         resolvedAnonKey = keys.publishableKey;
+        log('✅ Chaves obtidas', `anonKey=${resolvedAnonKey.slice(0,20)}...`);
         resolvedServiceRoleKey = keys.secretKey;
       }
 
       await sendPhase('coordinates', 10);
 
+      log('🗄️ Resolvendo DB URL', `needsDb=${needsDb}`);
       if (needsDb) {
         const db = await resolveSupabaseDbUrlViaCliLoginRole({
           projectRef: resolvedProjectRef,
@@ -222,10 +233,12 @@ export async function POST(req: Request) {
           return;
         }
         resolvedDbUrl = db.dbUrl;
+        log('✅ DB URL obtida', `host=${new URL(resolvedDbUrl.replace('postgresql://', 'http://')).hostname}`);
       }
 
       await sendPhase('coordinates', 15);
 
+      log('⚙️ Configurando variáveis de ambiente na Vercel');
       await upsertProjectEnvs(
         vercel.token,
         vercel.projectId,
@@ -240,6 +253,7 @@ export async function POST(req: Request) {
 
       await sendPhase('coordinates', 20);
 
+      log('📡 PHASE 2: Aguardando sinal');
       // Phase 2: Signal (wait for project ready) - skippable
       if (!skippedSteps.includes('wait_project')) {
         await sendPhase('signal', 25);
@@ -263,21 +277,26 @@ export async function POST(req: Request) {
         console.log('[run-stream] Skipping wait_project - project already ready');
       }
 
+      log('🏗️ PHASE 3: Construindo estação');
       // Phase 3: Station (migrations) - skippable
       if (!skippedSteps.includes('migrations')) {
         await sendPhase('station', 40);
 
+        log('📦 Executando migrations...');
         await runSchemaMigration(resolvedDbUrl);
+        log('✅ Migrations concluídas');
 
         await sendPhase('station', 55);
       } else {
         console.log('[run-stream] Skipping migrations - schema already applied');
       }
 
+      log('📻 PHASE 4: Ativando comunicadores');
       // Phase 4: Comms (edge functions)
       await sendPhase('comms', 60);
 
       if (supabase.deployEdgeFunctions && hasLocalEdgeFunctions) {
+        log('🔐 Configurando secrets das Edge Functions');
         const secrets = await setSupabaseEdgeFunctionSecrets({
           projectRef: resolvedProjectRef,
           accessToken: resolvedAccessToken,
@@ -294,6 +313,7 @@ export async function POST(req: Request) {
 
         await sendPhase('comms', 65);
 
+        log('🚀 Deployando Edge Functions...');
         functions = await deployAllSupabaseEdgeFunctions({
           projectRef: resolvedProjectRef,
           accessToken: resolvedAccessToken,
@@ -302,10 +322,12 @@ export async function POST(req: Request) {
 
       await sendPhase('comms', 75);
 
+      log('👤 PHASE 5: Primeiro contato');
       // Phase 5: Contact (bootstrap) - skippable
       if (!skippedSteps.includes('bootstrap')) {
         await sendPhase('contact', 80);
 
+        log('🏢 Criando organização e admin...');
         const bootstrap = await bootstrapInstance({
           supabaseUrl: supabase.url,
           serviceRoleKey: resolvedServiceRoleKey,
@@ -325,10 +347,12 @@ export async function POST(req: Request) {
         console.log('[run-stream] Skipping bootstrap - admin already exists');
       }
 
+      log('🛬 PHASE 6: Preparando pouso');
       // Phase 6: Landing (redeploy)
       await sendPhase('landing', 92);
 
       try {
+        log('🔄 Disparando redeploy na Vercel...');
         await triggerProjectRedeploy(
           vercel.token,
           vercel.projectId,
@@ -340,6 +364,7 @@ export async function POST(req: Request) {
 
       await sendPhase('landing', 98);
 
+      log('🎉 COMPLETE!', `totalTime=${((Date.now() - startTime) / 1000).toFixed(1)}s`);
       // Complete!
       await sendPhase('complete', 100);
       await sendEvent({ type: 'complete', ok: true });

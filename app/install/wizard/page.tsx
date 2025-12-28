@@ -582,7 +582,8 @@ export default function InstallWizardPage() {
             skipBootstrap: healthData.skipBootstrap,
             estimatedSeconds: healthData.estimatedSeconds,
           };
-          console.log('[wizard] Health check result:', healthCheck);
+          console.log('[wizard] 🏥 Health check result:', JSON.stringify(healthCheck, null, 2));
+          console.log('[wizard] ⏱️ Tempo estimado:', healthCheck.estimatedSeconds, 'segundos');
           
           // Mensagem personalizada baseada no que foi detectado
           const skippedCount = [
@@ -600,7 +601,7 @@ export default function InstallWizardPage() {
         }
       }
     } catch (healthErr) {
-      console.warn('[wizard] Health check failed, proceeding with full install:', healthErr);
+      console.warn('[wizard] ⚠️ Health check falhou, instalação completa será executada:', healthErr);
     }
     
     await new Promise((r) => setTimeout(r, 800));
