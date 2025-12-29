@@ -1135,9 +1135,20 @@ export default function InstallWizardPage() {
                       </p>
                     </div>
                     
-                    <p className="text-slate-400 text-center mb-6">
-                      Escolha uma das opções abaixo para continuar:
-                    </p>
+                    {conflictingProject.status?.toUpperCase().includes('PAUSING') ? (
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6">
+                        <div className="flex items-center gap-3 text-amber-400">
+                          <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                          <p className="text-sm">
+                            O projeto está sendo pausado. Aguarde alguns segundos...
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-400 text-center mb-6">
+                        Escolha uma das opções abaixo para continuar:
+                      </p>
+                    )}
                     
                     <div className="space-y-3">
                       {(conflictingProject.status?.toUpperCase() === 'ACTIVE_HEALTHY' || conflictingProject.status?.toUpperCase() === 'ACTIVE') && (
