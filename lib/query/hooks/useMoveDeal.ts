@@ -12,7 +12,7 @@
  * - Optimistic updates for instant UI feedback
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../queryKeys';
+import { queryKeys, DEALS_VIEW_KEY } from '../queryKeys';
 import { dealsService } from '@/lib/supabase';
 import { boardsService } from '@/lib/supabase/boards'; // Added
 import { activitiesService } from '@/lib/supabase/activities';
@@ -40,7 +40,7 @@ interface MoveDealResult {
 
 // Context type for optimistic updates
 interface MoveDealContext {
-  previousState: [readonly unknown[], Deal[] | DealView[] | undefined][];
+  previousDeals: DealView[] | undefined;
 }
 
 /**
@@ -250,12 +250,8 @@ export const useMoveDeal = () => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.deals.all });
 
-      // Snapshot previous state
-      const previousState: MoveDealContext['previousState'] = [];
-      const queriesData = queryClient.getQueriesData<Deal[] | DealView[]>({ queryKey: queryKeys.deals.all });
-      queriesData.forEach(([key, data]) => {
-        previousState.push([key, data]);
-      });
+      // Snapshot previous state - usa DEALS_VIEW_KEY (única fonte de verdade)
+      const previousDeals = queryClient.getQueryData<DealView[]>(DEALS_VIEW_KEY);
 
       // Determine new status
       const targetStage = board.stages.find(s => s.id === targetStageId);
@@ -270,65 +266,71 @@ export const useMoveDeal = () => {
         explicitLost
         || (board.lostStageId ? targetStageId === board.lostStageId : targetStage?.linkedLifecycleStage === 'OTHER');
 
-      // Optimistically update the cache
-      let cacheCount = 0;
-      queryClient.setQueriesData<Deal[] | DealView[]>(
-        { queryKey: queryKeys.deals.all },
-        (old) => {
-          if (!old) return old;
-          cacheCount++;
-          const dealInCache = old.find(d => d.id === dealId);
-          // #region agent log
-          if (process.env.NODE_ENV !== 'production') {
-            const logData = {
-              cacheIndex: cacheCount,
-              cacheSize: old.length,
-              dealFound: !!dealInCache,
-              currentStatus: dealInCache?.status?.slice(0, 8) || 'null',
-            };
-            console.log(`[useMoveDeal] 📊 Processing cache #${cacheCount}`, logData);
-            fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMoveDeal.ts:280',message:'Processing cache for optimistic update',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'move-deal',hypothesisId:'OPT'})}).catch(()=>{});
-          }
-          // #endregion
-          const updated = old.map(d => {
-            if (d.id === dealId) {
-              const newDeal = {
-                ...d,
-                status: targetStageId,
-                lastStageChangeDate: new Date().toISOString(),
-                isWon: isWon ?? d.isWon,
-                isLost: isLost ?? d.isLost,
-                updatedAt: new Date().toISOString(), // Update timestamp for staleness checks
-              };
-              // #region agent log
-              if (process.env.NODE_ENV !== 'production') {
-                const logData = {
-                  dealId: dealId.slice(0, 8),
-                  oldStatus: d.status?.slice(0, 8) || 'null',
-                  newStatus: targetStageId.slice(0, 8),
-                  updatedAt: newDeal.updatedAt,
-                };
-                console.log(`[useMoveDeal] ✅ Optimistic update applied`, logData);
-                fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMoveDeal.ts:235',message:'Optimistic update applied',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'move-deal',hypothesisId:'G'})}).catch(()=>{});
-              }
-              // #endregion
-              return newDeal;
-            }
-            return d;
-          });
-          return updated;
+      // Optimistically update APENAS DEALS_VIEW_KEY (única fonte de verdade)
+      queryClient.setQueryData<DealView[]>(DEALS_VIEW_KEY, (old) => {
+        if (!old) return old;
+        
+        const dealInCache = old.find(d => d.id === dealId);
+        // #region agent log
+        if (process.env.NODE_ENV !== 'production') {
+          const logData = {
+            cacheSize: old.length,
+            dealFound: !!dealInCache,
+            currentStatus: dealInCache?.status?.slice(0, 8) || 'null',
+          };
+          console.log(`[useMoveDeal] 📊 Processing DEALS_VIEW_KEY cache`, logData);
+          fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMoveDeal.ts:280',message:'Processing cache for optimistic update',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'move-deal',hypothesisId:'OPT'})}).catch(()=>{});
         }
-      );
+        // #endregion
+        
+        return old.map(d => {
+          if (d.id === dealId) {
+            const newDeal = {
+              ...d,
+              status: targetStageId,
+              lastStageChangeDate: new Date().toISOString(),
+              isWon: isWon ?? d.isWon,
+              isLost: isLost ?? d.isLost,
+              updatedAt: new Date().toISOString(),
+            };
+            // #region agent log
+            if (process.env.NODE_ENV !== 'production') {
+              const logData = {
+                dealId: dealId.slice(0, 8),
+                oldStatus: d.status?.slice(0, 8) || 'null',
+                newStatus: targetStageId.slice(0, 8),
+                updatedAt: newDeal.updatedAt,
+              };
+              console.log(`[useMoveDeal] ✅ Optimistic update applied`, logData);
+              fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMoveDeal.ts:235',message:'Optimistic update applied',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'move-deal',hypothesisId:'G'})}).catch(()=>{});
+            }
+            // #endregion
+            return newDeal;
+          }
+          return d;
+        });
+      });
 
-      return { previousState };
+      // Também atualizar o detail cache se existir
+      queryClient.setQueryData<Deal>(queryKeys.deals.detail(dealId), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          status: targetStageId,
+          lastStageChangeDate: new Date().toISOString(),
+          isWon: isWon ?? old.isWon,
+          isLost: isLost ?? old.isLost,
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      return { previousDeals };
     },
 
     // Rollback on error
     onError: (_err, _variables, context) => {
-      if (context?.previousState) {
-        context.previousState.forEach(([key, data]) => {
-          queryClient.setQueryData(key, data);
-        });
+      if (context?.previousDeals) {
+        queryClient.setQueryData(DEALS_VIEW_KEY, context.previousDeals);
       }
     },
 

@@ -12,10 +12,38 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { queryKeys } from '@/lib/query/queryKeys';
+import { queryKeys, DEALS_VIEW_KEY } from '@/lib/query/queryKeys';
+import type { DealView } from '@/types';
 
 // Enable detailed Realtime logging in development or when DEBUG_REALTIME env var is set
 const DEBUG_REALTIME = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEBUG_REALTIME === 'true';
+
+// Global deduplication for INSERT events - prevents multiple hook instances from processing the same event
+// Key format: `${table}-${id}-${updatedAt}`
+// Using Map with timestamp to handle TTL and atomic check-and-set
+const processedInserts = new Map<string, number>();
+const PROCESSED_CACHE_TTL = 5000; // 5 seconds TTL for processed events
+
+// Atomic check-and-set for deduplication
+function shouldProcessInsert(key: string): boolean {
+  const now = Date.now();
+  
+  // Clean up old entries
+  for (const [k, timestamp] of processedInserts) {
+    if (now - timestamp > PROCESSED_CACHE_TTL) {
+      processedInserts.delete(k);
+    }
+  }
+  
+  // Check if already processed
+  if (processedInserts.has(key)) {
+    return false;
+  }
+  
+  // Mark as processed immediately (atomic in single-threaded JS)
+  processedInserts.set(key, now);
+  return true;
+}
 
 // Tables that support realtime sync
 type RealtimeTable =
@@ -159,6 +187,19 @@ export function useRealtimeSync(
             if (table === 'deals') {
               const newData = payload.new as Record<string, unknown>;
               const dealId = newData.id as string;
+              const updatedAt = newData.updated_at as string;
+              
+              // Deduplication: prevent multiple hook instances from processing the same INSERT
+              const dedupeKey = `deals-${dealId}-${updatedAt}`;
+              if (!shouldProcessInsert(dedupeKey)) {
+                // #region agent log
+                if (process.env.NODE_ENV !== 'production') {
+                  console.log(`[Realtime] ⏭️ INSERT deals - skipping duplicate`, { dealId: dealId.slice(0, 8) });
+                  fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useRealtimeSync.ts:180',message:'INSERT deals - skipping duplicate',data:{dealId:dealId.slice(0,8)},timestamp:Date.now(),sessionId:'debug-session',runId:'realtime-insert',hypothesisId:'RI0'})}).catch(()=>{});
+                }
+                // #endregion
+                return; // Skip this event, already processed by another hook instance
+              }
               
               // #region agent log
               if (process.env.NODE_ENV !== 'production') {
@@ -168,7 +209,7 @@ export function useRealtimeSync(
                   status: typeof newData.stage_id === 'string' ? (newData.stage_id as string).slice(0, 8) : 'null',
                 };
                 console.log(`[Realtime] 📥 INSERT deals - adding to cache directly`, logData);
-                fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useRealtimeSync.ts:160',message:'INSERT deals - adding to cache directly',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'realtime-insert',hypothesisId:'RI1'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useRealtimeSync.ts:180',message:'INSERT deals - adding to cache directly',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'realtime-insert',hypothesisId:'RI1'})}).catch(()=>{});
               }
               // #endregion
 
@@ -223,14 +264,16 @@ export function useRealtimeSync(
                 delete normalizedDeal.loss_reason;
               }
 
-              // Add to all deals caches directly
-              queryClient.setQueriesData<unknown[]>(
-                { queryKey: queryKeys.deals.all },
+              // CRÍTICO: Atualizar APENAS DEALS_VIEW_KEY (única fonte de verdade)
+              // O Kanban (useDealsByBoard) agora usa essa mesma query com filtragem client-side
+              // NÃO usar setQueriesData com prefix matcher - isso atualiza queries erradas!
+              queryClient.setQueryData<DealView[]>(
+                DEALS_VIEW_KEY,
                 (old) => {
                   if (!old || !Array.isArray(old)) return old;
                   
                   // Check if deal already exists (by real ID)
-                  const existingIndex = old.findIndex((d: any) => d.id === dealId);
+                  const existingIndex = old.findIndex((d) => d.id === dealId);
                   if (existingIndex !== -1) {
                     // Deal already exists, update it
                     // #region agent log
@@ -239,11 +282,11 @@ export function useRealtimeSync(
                       fetch('http://127.0.0.1:7242/ingest/d70f541c-09d7-4128-9745-93f15f184017',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useRealtimeSync.ts:240',message:'INSERT deals - deal already exists, updating',data:{dealId:dealId.slice(0,8)},timestamp:Date.now(),sessionId:'debug-session',runId:'realtime-insert',hypothesisId:'RI3'})}).catch(()=>{});
                     }
                     // #endregion
-                    return old.map((d: any, i) => i === existingIndex ? { ...d, ...normalizedDeal } : d);
+                    return old.map((d, i) => i === existingIndex ? { ...d, ...normalizedDeal } as DealView : d);
                   }
                   
                   // Remove any temp deals with same title (they are placeholders for this deal)
-                  const tempDealsRemoved = old.filter((d: any) => {
+                  const tempDealsRemoved = old.filter((d) => {
                     const isTemp = typeof d.id === 'string' && d.id.startsWith('temp-');
                     const sameTitle = d.title === newData.title;
                     return !(isTemp && sameTitle);
@@ -257,8 +300,8 @@ export function useRealtimeSync(
                   }
                   // #endregion
                   
-                  // Add the new deal at the beginning
-                  return [normalizedDeal, ...tempDealsRemoved];
+                  // Add new deal at the beginning
+                  return [normalizedDeal as unknown as DealView, ...tempDealsRemoved];
                 }
               );
               
@@ -335,12 +378,12 @@ export function useRealtimeSync(
               }
               // #endregion
 
-              // Apply update directly to cache instead of invalidating
+              // Apply update directly to DEALS_VIEW_KEY (única fonte de verdade)
               // This avoids race condition where invalidation refetches stale data
               // IMPORTANT: Only apply if the incoming status is different from current cache status
               // This prevents Realtime from reverting optimistic updates with stale data
-              queryClient.setQueriesData<Array<Record<string, unknown>>>(
-                { queryKey: queryKeys.deals.all },
+              queryClient.setQueryData<DealView[]>(
+                DEALS_VIEW_KEY,
                 (old) => {
                   if (!old || !Array.isArray(old)) {
                     // #region agent log
