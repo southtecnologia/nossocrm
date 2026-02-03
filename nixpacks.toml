@@ -1,0 +1,16 @@
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_PRODUCTION = "false"
+NEXT_TELEMETRY_DISABLED = "1"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start -- -p $PORT"
